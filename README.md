@@ -1,7 +1,6 @@
 - 👋 Hi, I’m @AliMirzapour
 - 👀 I’m interested in Exploring Data and developong ML/DL models
-- 🌱 I’m currently learning Vision Transformer implemetation
-- 💞️ I’m looking to collaborate on Smart Estimate deep learning model at CCCIS/
+- 🌱 I’m currently learning Transformer/LLMs implemetation as well as Agentic AI
 - 📫 How to reach me : mirzapour.ie@gmail.com
 
 <!---
