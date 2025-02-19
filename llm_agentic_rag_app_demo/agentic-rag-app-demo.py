@@ -15,8 +15,8 @@ class Config(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 # API Key Configuration 
-os.environ['GROQ_API_KEY'] =  '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'
-os.environ['TAVILY_API_KEY'] = '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'
+os.environ['GROQ_API_KEY'] =  'GROQ_API_KEY'
+os.environ['TAVILY_API_KEY'] = 'TAVILY_API_KEY'
 
 # Download PDF if not already present
 def download_pdf():
