@@ -8,12 +8,11 @@ from crewai_tools import PDFSearchTool
 from langchain_community.tools.tavily_search import TavilySearchResults
 from crewai_tools import tool
 from crewai import Crew, Task, Agent
-from pydantic import BaseModel  # Import BaseModel from Pydantic
+from pydantic import BaseModel, ConfigDict  # Import BaseModel from Pydantic
 
 # Apply Pydantic configuration
 class Config(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 # API Key Configuration 
 os.environ['GROQ_API_KEY'] =  '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'
