@@ -1,0 +1,17 @@
+langchain-openai==0.2.6
+langchain-text-splitters==0.3.2
+python-dotenv==1.0.1
+
+pydicom>=2.3.0
+numpy>=1.21.0
+tensorflow>=2.8.0
+scikit-learn>=1.0.0
+
+llama-index-core
+llama-index-readers-file
+llama-index-embeddings-openai
+llama-index-llms-llama-api
+
+langchain-huggingface
+langchain-groq
+langchain-chroma
