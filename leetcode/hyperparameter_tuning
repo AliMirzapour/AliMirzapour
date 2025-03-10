@@ -1,0 +1,169 @@
+import pandas as pd
+import numpy as np
+import itertools
+from prophet import Prophet
+from prophet.diagnostics import cross_validation, performance_metrics
+import matplotlib.pyplot as plt
+import concurrent.futures
+from tqdm import tqdm
+
+# Load your data
+data = pd.read_csv('market_share_data.csv')
+data['date'] = pd.to_datetime(data['date'])
+
+# List of brands
+brands = ['apple', 'brand2', 'brand3', 'brand4', 'brand5', 'brand6']
+
+# Define hyperparameter grid
+param_grid = {
+    'changepoint_prior_scale': [0.001, 0.01, 0.1, 0.5],
+    'seasonality_prior_scale': [0.01, 0.1, 1.0, 10.0],
+    'seasonality_mode': ['additive', 'multiplicative'],
+    'yearly_seasonality': [True, False],
+    'monthly_fourier_order': [3, 5, 8]
+}
+
+# Generate all combinations of parameters
+all_params = [dict(zip(param_grid.keys(), v)) for v in itertools.product(*param_grid.values())]
+print(f"Number of hyperparameter combinations to try: {len(all_params)}")
+
+# Function to evaluate a single hyperparameter combination for a brand
+def evaluate_model(params, brand_data):
+    model = Prophet(
+        changepoint_prior_scale=params['changepoint_prior_scale'],
+        seasonality_prior_scale=params['seasonality_prior_scale'],
+        seasonality_mode=params['seasonality_mode'],
+        yearly_seasonality=params['yearly_seasonality']
+    )
+    
+    # Add monthly seasonality with specified Fourier order
+    model.add_seasonality(
+        name='monthly', 
+        period=30.5, 
+        fourier_order=params['monthly_fourier_order']
+    )
+    
+    # Fit the model
+    model.fit(brand_data)
+    
+    # Perform cross-validation
+    # Initial 24 months for training, predict 3 months, step size of 1 month
+    cv_results = cross_validation(
+        model, 
+        initial='730 days',  # ~24 months
+        period='90 days',    # 3 months
+        horizon='90 days',   # 3 months
+        parallel="processes"
+    )
+    
+    # Calculate performance metrics
+    df_p = performance_metrics(cv_results)
+    
+    # Return RMSE as the evaluation metric
+    return df_p['rmse'].mean()
+
+# Dictionary to store best parameters and metrics for each brand
+best_params = {}
+best_metrics = {}
+
+# Perform hyperparameter tuning for each brand
+for brand in brands:
+    print(f"\nTuning hyperparameters for {brand}...")
+    
+    # Prepare data for Prophet
+    brand_data = data[['date', f'{brand}_share']].rename(columns={'date': 'ds', f'{brand}_share': 'y'})
+    
+    # Track best parameters and metric
+    best_rmse = float('inf')
+    best_param_set = None
+    
+    # Progress bar for this brand
+    with tqdm(total=len(all_params)) as pbar:
+        # Use parallel processing to speed up hyperparameter search
+        with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+            # Submit all parameter combinations for evaluation
+            future_to_params = {
+                executor.submit(evaluate_model, params, brand_data): params 
+                for params in all_params
+            }
+            
+            # Process results as they complete
+            for future in concurrent.futures.as_completed(future_to_params):
+                params = future_to_params[future]
+                try:
+                    rmse = future.result()
+                    if rmse < best_rmse:
+                        best_rmse = rmse
+                        best_param_set = params
+                        print(f"New best for {brand}: RMSE={best_rmse:.4f}, params={best_param_set}")
+                except Exception as e:
+                    print(f"Error with params {params}: {e}")
+                
+                pbar.update(1)
+    
+    # Store best parameters and metrics for this brand
+    best_params[brand] = best_param_set
+    best_metrics[brand] = best_rmse
+    
+    print(f"Best parameters for {brand}: {best_param_set}")
+    print(f"Best RMSE for {brand}: {best_rmse:.4f}")
+
+# Save best parameters to CSV
+best_params_df = pd.DataFrame.from_dict(best_params, orient='index')
+best_params_df['brand'] = best_params_df.index
+best_params_df['best_rmse'] = [best_metrics[brand] for brand in best_params_df.index]
+best_params_df.to_csv('best_prophet_params.csv', index=False)
+
+# Visualize best RMSE for each brand
+plt.figure(figsize=(12, 6))
+plt.bar(best_metrics.keys(), best_metrics.values())
+plt.title('Best RMSE by Brand')
+plt.xlabel('Brand')
+plt.ylabel('RMSE')
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.savefig('best_rmse_by_brand.png')
+
+print("\nHyperparameter tuning complete!")
+print("Best parameters saved to 'best_prophet_params.csv'")
+
+# Function to train final models with best parameters
+def train_final_model(brand, params, data):
+    print(f"Training final model for {brand} with best parameters...")
+    
+    # Prepare data
+    brand_data = data[['date', f'{brand}_share']].rename(columns={'date': 'ds', f'{brand}_share': 'y'})
+    
+    # Create model with best parameters
+    model = Prophet(
+        changepoint_prior_scale=params['changepoint_prior_scale'],
+        seasonality_prior_scale=params['seasonality_prior_scale'],
+        seasonality_mode=params['seasonality_mode'],
+        yearly_seasonality=params['yearly_seasonality']
+    )
+    
+    # Add monthly seasonality
+    model.add_seasonality(
+        name='monthly', 
+        period=30.5, 
+        fourier_order=params['monthly_fourier_order']
+    )
+    
+    # Fit the model
+    model.fit(brand_data)
+    
+    # Create component plots
+    fig = model.plot_components()
+    plt.savefig(f'{brand}_components.png')
+    plt.close()
+    
+    return model
+
+# Train final models with best parameters
+print("\nTraining final models with best parameters...")
+final_models = {}
+
+for brand, params in best_params.items():
+    final_models[brand] = train_final_model(brand, params, data)
+
+print("Final models trained successfully!")

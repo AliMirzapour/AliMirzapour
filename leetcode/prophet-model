@@ -1,0 +1,83 @@
+import pandas as pd
+import numpy as np
+from prophet import Prophet
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+# Assuming your data is in a DataFrame with columns: 'date', 'apple_share', 'brand2_share', etc.
+# Load your data
+data = pd.read_csv('market_share_data.csv')
+
+# Convert date to datetime format if needed
+data['date'] = pd.to_datetime(data['date'])
+
+# List of brands
+brands = ['apple', 'brand2', 'brand3', 'brand4', 'brand5', 'brand6']
+
+# Dictionary to store models and forecasts
+models = {}
+forecasts = {}
+
+# Train separate models for each brand
+for brand in brands:
+    # Prepare data for Prophet (requires 'ds' and 'y' columns)
+    brand_data = data[['date', f'{brand}_share']].rename(columns={'date': 'ds', f'{brand}_share': 'y'})
+    
+    # Initialize and fit model
+    model = Prophet(
+        yearly_seasonality=True,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        seasonality_mode='multiplicative'  # Often works better for percentage data
+    )
+    
+    # Add monthly seasonality
+    model.add_seasonality(name='monthly', period=30.5, fourier_order=5)
+    
+    # Fit the model
+    model.fit(brand_data)
+    
+    # Store the model
+    models[brand] = model
+    
+    # Create future dataframe for predictions (12 months)
+    future = model.make_future_dataframe(periods=12, freq='M')
+    
+    # Make predictions
+    forecast = model.predict(future)
+    
+    # Store forecast
+    forecasts[brand] = forecast
+
+# Normalize predictions to ensure market shares sum to 100%
+future_dates = forecasts[brands[0]]['ds'].tail(12)
+normalized_predictions = pd.DataFrame({'date': future_dates})
+
+# Extract raw predictions for future dates
+for brand in brands:
+    brand_forecast = forecasts[brand]
+    future_forecast = brand_forecast.tail(12)
+    normalized_predictions[brand] = future_forecast['yhat']
+
+# Normalize to ensure sum is 100%
+for date_idx in range(len(normalized_predictions)):
+    total = normalized_predictions.iloc[date_idx, 1:].sum()
+    for brand_idx, brand in enumerate(brands):
+        normalized_predictions.iloc[date_idx, brand_idx+1] = (normalized_predictions.iloc[date_idx, brand_idx+1] / total) * 100
+
+# Visualize predictions
+plt.figure(figsize=(12, 8))
+for brand in brands:
+    plt.plot(normalized_predictions['date'], normalized_predictions[brand], label=brand)
+
+plt.title('Predicted Market Share (%) - Next 12 Months')
+plt.xlabel('Date')
+plt.ylabel('Market Share (%)')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.savefig('market_share_forecast.png')
+plt.show()
+
+# Save normalized predictions
+normalized_predictions.to_csv('predicted_market_shares.csv', index=False)
