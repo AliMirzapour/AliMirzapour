@@ -17,14 +17,14 @@ langchain-chroma==0.1.4
 langchain-core==0.3.15
 langchain-openai==0.2.6
 langchain-text-splitters==0.3.2
-python-dotenv==1.0.1
+python-dotenv==1.0.0
 
 pydicom>=2.3.0
 numpy>=1.21.0
 tensorflow>=2.8.0
 scikit-learn>=1.0.0
 
-llava-torch>=1.5.0
+# llava-torch>=1.5.0
 transformers>=4.30.0
 torch>=2.0.0
 Pillow>=9.0.0
