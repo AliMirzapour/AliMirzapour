@@ -1,6 +1,10 @@
 # Environment variables
 .env
 *.env
+*.csv
+
+# Specific large files
+Recommendation System/1/ratings_Electronics (1).csv
 
 # Python
 __pycache__/
