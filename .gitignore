@@ -6,6 +6,8 @@
 # Specific large files
 Recommendation System/1/ratings_Electronics (1).csv
 
+Recommendation System/models
+
 # Python
 __pycache__/
 *.py[cod]
